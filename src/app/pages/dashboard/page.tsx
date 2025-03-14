@@ -49,7 +49,9 @@ const GameCard = React.memo(
             <span className="text-gray-700 text-sm md:text-base">
               Reward —{" "}
             </span>
-            {isPaid ? (
+            {typeof reward === "string" ? (
+              <span className="ml-2 text-sm md:text-base">{reward}</span>
+            ) : isPaid ? (
               <div className="flex items-center ml-2">
                 <span className="ml-1 text-sm md:text-base">$ {reward}</span>
               </div>
@@ -92,7 +94,9 @@ const MobileGameCard = React.memo(
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
           <div className="flex items-center mt-1">
             <span className="text-gray-700 text-xs">Reward — </span>
-            {isPaid ? (
+            {typeof reward === "string" ? (
+              <span className="text-xs ml-1">{reward}</span>
+            ) : isPaid ? (
               <div className="flex items-center ml-1">
                 <span className="text-xs">$ {reward}</span>
               </div>
@@ -217,6 +221,17 @@ const StatsCard = React.memo(() => {
   );
 });
 
+// Update menuItems to match the game card structure
+const menuItems = [
+  {
+    title: "Global Leaderboard",
+    reward: "trib points",
+    isPaid: false,
+    code: "MENU_001",
+    href: "/pages/global_leaderboard",
+  },
+];
+
 const HomePage = () => {
   // 4. Move static data outside component
   const [activeTab, setActiveTab] = useState("templates");
@@ -298,6 +313,16 @@ const HomePage = () => {
           >
             Free games
           </button>
+          <button
+            onClick={() => setActiveTab("menu")}
+            className={`pb-2 font-medium text-sm md:text-base ${
+              activeTab === "menu"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Other Menu
+          </button>
         </div>
         {activeTab === "templates" && (
           <div className="mb-4">
@@ -352,6 +377,33 @@ const HomePage = () => {
           </div>
         )}
 
+        {activeTab === "menu" && (
+          <div className="mb-4">
+            <div className="md:hidden">
+              {menuItems.map((item, index) => (
+                <MobileGameCard
+                  key={index}
+                  title={item.title}
+                  reward={item.reward}
+                  isPaid={item.isPaid}
+                  onClick={() => router.push(item.href)}
+                />
+              ))}
+            </div>
+            <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-4 font-semibold text-gray-700">
+              {menuItems.map((item, index) => (
+                <GameCard
+                  key={index}
+                  title={item.title}
+                  reward={item.reward}
+                  isPaid={item.isPaid}
+                  onClick={() => router.push(item.href)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end">
           <button
             onClick={() => setShowAll(!showAll)}
@@ -382,7 +434,7 @@ const HomePage = () => {
 const templates = [
   {
     title: "Buildathon Quiz",
-    reward: "100",
+    reward: "0",
     isPaid: true,
     code: "TEMPLATE_001",
   },
@@ -390,19 +442,19 @@ const templates = [
   { title: "Trivia Night", reward: "0", isPaid: false, code: "TEMPLATE_002" },
   {
     title: "Tech Trivia",
-    reward: "100",
+    reward: "trib points",
     isPaid: true,
     code: "TEMPLATE_003",
   },
   {
     title: "Brain Blitz",
-    reward: "100",
+    reward: "trib points",
     isPaid: true,
     code: "TEMPLATE_004",
   },
   {
     title: "Knowledge Knockout",
-    reward: "100",
+    reward: "trib points",
     isPaid: true,
     code: "TEMPLATE_005",
   },
@@ -414,7 +466,7 @@ const templates = [
   },
   {
     title: "Geography Trivia",
-    reward: "100",
+    reward: "trib points",
     isPaid: true,
     code: "TEMPLATE_007",
   },
@@ -461,19 +513,19 @@ const freeGames = [
   // Define your free game card data here
   {
     title: "Crypto Quiz",
-    reward: "0",
+    reward: "trib points",
     isPaid: false,
     code: "FREE_GAME_001",
   },
   {
     title: "Brain Blast",
-    reward: "0",
+    reward: "trib points",
     isPaid: false,
     code: "FREE_GAME_002",
   },
   {
     title: "Knowledge Knockout",
-    reward: "0",
+    reward: "trib points",
     isPaid: false,
     code: "FREE_GAME_003",
   },
