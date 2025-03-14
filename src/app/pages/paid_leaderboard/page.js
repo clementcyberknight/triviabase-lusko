@@ -101,7 +101,7 @@ export default function Leaderboard() {
           if (snapshot.exists()) {
             const transactionDetails = snapshot.val();
             const transactionHash = transactionDetails.transactionHash;
-            const link = `https://basescan.org/tx/${transactionHash}`;
+            const link = `https://explorer.execution.testnet.lukso.network/tx/${transactionHash}`;
             setTransactionLink(link);
           }
         }
