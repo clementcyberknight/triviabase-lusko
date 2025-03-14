@@ -151,7 +151,7 @@ export default function Leaderboard() {
                   transactionHash: transactionHash,
                 });
 
-                const link = `https://sepolia.basescan.org/tx/${transactionHash}`;
+                const link = `https://explorer.execution.testnet.lukso.network/tx/${transactionHash}`;
                 setTransactionLink(link);
                 
                 toast.success(
