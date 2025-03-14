@@ -2,23 +2,82 @@
 
 import Image from "next/image";
 import { getDatabase, ref, get, update } from "@/config/FirebaseConfig";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useActiveAccount } from "thirdweb/react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 const WinningPage = () => {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const account = useActiveAccount();
   const [quizCode, setQuizCode] = useState(null);
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
+
+  // Initialize provider only on client side
+  useEffect(() => {
+    setProvider(createClientUPProvider());
+  }, []);
+
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
 
   useEffect(() => {
     const fetchQuizCode = async () => {
-      if (!account?.address) return;
-      const storedWalletAddress = account.address;
+      if (!profileConnected || contextAccounts.length === 0) return;
+      const storedWalletAddress = accounts[0];
       console.log(storedWalletAddress);
       const db = getDatabase();
       const quizcodeRef = ref(db, `paid_quizcode/${storedWalletAddress}`);
@@ -37,7 +96,7 @@ const WinningPage = () => {
     };
 
     fetchQuizCode();
-  }, [account?.address]);
+  }, [profileConnected, contextAccounts[0]]);
 
   const handleSubmit = async () => {
     if (!email) {
@@ -52,7 +111,7 @@ const WinningPage = () => {
     try {
       setLoading(true);
       const db = getDatabase();
-      const storedWalletAddress = account.address;
+      const storedWalletAddress = accounts[0];
 
       // Update existing data in Firebase Realtime Database
       const quizRef = ref(db, `paid_quizzes/${quizCode}`);

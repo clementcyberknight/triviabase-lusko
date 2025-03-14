@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Share2, Copy, Check } from "lucide-react";
-import { useActiveAccount } from "thirdweb/react";
 import { ref, onValue, get, getDatabase } from "@/config/FirebaseConfig";
 import { database } from "@/config/FirebaseConfig";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 // Constants
 const CONSTANTS = {
@@ -41,7 +41,12 @@ const STYLES = {
 };
 
 const WalletModal = () => {
-  const account = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
   const [quizCode, setQuizCode] = useState("");
@@ -50,13 +55,67 @@ const WalletModal = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [shareUrl, setShareUrl] = useState("");
 
+  // Initialize provider only on client side
+  useEffect(() => {
+    setProvider(createClientUPProvider());
+  }, []);
+
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
+
   useEffect(() => {
     setShareUrl(`${window.location.origin}/pages/join_game`);
     setShareSupported(!!navigator.share);
     const fetchQuizCode = async () => {
-      if (!account?.address) return;
+      if (!accounts[0]) return;
       const db = getDatabase();
-      const quizcodeRef = ref(db, `paid_quizcode/${account.address}`);
+      const quizcodeRef = ref(db, `paid_quizcode/${accounts[0]}`);
       try {
         const snapshot = await get(quizcodeRef);
         if (snapshot.exists()) {
@@ -81,7 +140,7 @@ const WalletModal = () => {
     };
 
     fetchQuizCode();
-  }, [account?.address]);
+  }, [accounts[0]]);
 
   const shareMessage = `Join my quiz game! Use code: ${quizCode}\n`;
 

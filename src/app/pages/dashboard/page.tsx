@@ -3,125 +3,161 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { client } from "../../client";
-import { ConnectButton, darkTheme } from "thirdweb/react";
 
 // 1. Memoize static components with React.memo
-const GameCard = React.memo(({ title, reward, isPaid, onClick }) => {
-  return (
-    <div
-      onClick={onClick}
-      className="hidden md:flex flex-col bg-white rounded-xl p-1 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
-    >
-      <div className="relative  bg-[#EDEBFF] p-4 flex items-center justify-center h-32 md:h-48 rounded-xl overflow-hidden">
-        {/* Image Container with rounded corners */}
+const GameCard = React.memo(
+  ({
+    title,
+    reward,
+    isPaid,
+    onClick,
+  }: {
+    title: string;
+    reward: number | string;
+    isPaid: boolean;
+    onClick: () => void;
+  }) => {
+    return (
+      <div
+        onClick={onClick}
+        className="hidden md:flex flex-col bg-white rounded-xl p-1 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
+      >
+        <div className="relative  bg-[#EDEBFF] p-4 flex items-center justify-center h-32 md:h-48 rounded-xl overflow-hidden">
+          {/* Image Container with rounded corners */}
+          <Image
+            src={isPaid ? "/icons/paid.png" : "/icons/free.png"}
+            width={150}
+            height={70}
+            alt={title}
+            className="object-contain"
+          />
+          <div className="absolute rounded-full bg-white top-2 right-2">
+            <Image
+              src="/arrowblue.svg"
+              width={10}
+              height={10}
+              alt="arrow"
+              className="md:w-7 w-7 h-7 md:h-7"
+            />
+          </div>
+        </div>
+        <div className="p-4">
+          <h3 className="text-base md:text-lg font-semi-bold text-gray-900">
+            {title}
+          </h3>
+          <div className="flex items-center mt-2">
+            <span className="text-gray-700 text-sm md:text-base">
+              Reward —{" "}
+            </span>
+            {isPaid ? (
+              <div className="flex items-center ml-2">
+                <span className="ml-1 text-sm md:text-base">$ {reward}</span>
+              </div>
+            ) : (
+              <span className="ml-2 text-sm md:text-base">None</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+
+const MobileGameCard = React.memo(
+  ({
+    title,
+    reward,
+    isPaid,
+    onClick,
+  }: {
+    title: string;
+    reward: number | string;
+    isPaid: boolean;
+    onClick: () => void;
+  }) => {
+    return (
+      <div
+        onClick={onClick}
+        className="flex md:hidden items-center bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-2 mb-2"
+      >
         <Image
           src={isPaid ? "/icons/paid.png" : "/icons/free.png"}
-          width={150}
-          height={70}
+          width={90}
+          height={42}
           alt={title}
-          className="object-contain"
+          className="object-contain rounded-md"
         />
-        <div className="absolute rounded-full bg-white top-2 right-2">
+
+        <div className="ml-3 flex-grow">
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <div className="flex items-center mt-1">
+            <span className="text-gray-700 text-xs">Reward — </span>
+            {isPaid ? (
+              <div className="flex items-center ml-1">
+                <span className="text-xs">$ {reward}</span>
+              </div>
+            ) : (
+              <span className="text-xs">None</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-shrink-0">
           <Image
             src="/arrowblue.svg"
-            width={10}
-            height={10}
+            width={20}
+            height={20}
             alt="arrow"
-            className="md:w-7 w-7 h-7 md:h-7"
+            className="w-5 h-5"
           />
         </div>
       </div>
-      <div className="p-4">
-        <h3 className="text-base md:text-lg font-semi-bold text-gray-900">
-          {title}
-        </h3>
-        <div className="flex items-center mt-2">
-          <span className="text-gray-700 text-sm md:text-base">Reward — </span>
-          {isPaid ? (
-            <div className="flex items-center ml-2">
-              <span className="ml-1 text-sm md:text-base">$ {reward}</span>
-            </div>
-          ) : (
-            <span className="ml-2 text-sm md:text-base">None</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-});
+    );
+  }
+);
 
-const MobileGameCard = React.memo(({ title, reward, isPaid, onClick }) => {
-  return (
-    <div
-      onClick={onClick}
-      className="flex md:hidden items-center bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-2 mb-2"
-    >
-      <Image
-        src={isPaid ? "/icons/paid.png" : "/icons/free.png"}
-        width={90}
-        height={42}
-        alt={title}
-        className="object-contain rounded-md"
-      />
-
-      <div className="ml-3 flex-grow">
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <div className="flex items-center mt-1">
-          <span className="text-gray-700 text-xs">Reward — </span>
-          {isPaid ? (
-            <div className="flex items-center ml-1">
-              <span className="text-xs">$ {reward}</span>
-            </div>
-          ) : (
-            <span className="text-xs">None</span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex-shrink-0">
-        <Image
-          src="/arrowblue.svg"
-          width={20}
-          height={20}
-          alt="arrow"
-          className="w-5 h-5"
-        />
-      </div>
-    </div>
-  );
-});
-
-const ActionCard = React.memo(({ title, imageSrc, imageSize, href }) => (
-  <Link href={href}>
-    <div className="bg-white rounded-xl p-1.5 shadow-sm hover:shadow-md transition-all h-full flex-grow">
-      <div className="bg-[#EDEBFF] rounded-xl p-6 flex items-center justify-center mb-2 h-24 md:h-40">
-        {/* Reduced height */}
-        <Image
-          src={imageSrc}
-          width={imageSize}
-          height={imageSize}
-          alt={title}
-          className="object-contain"
-        />
-      </div>
-      <div className="flex items-center justify-between pt-1">
-        <h3 className="text-sm p-1 md:text-lg font-bold text-gray-700">
-          {title}
-        </h3>
-        <span>
+const ActionCard = React.memo(
+  ({
+    title,
+    imageSrc,
+    imageSize,
+    href,
+  }: {
+    title: string;
+    imageSrc: string;
+    imageSize: number;
+    href: string;
+  }) => (
+    <Link href={href}>
+      <div className="bg-white rounded-xl p-1.5 shadow-sm hover:shadow-md transition-all h-full flex-grow">
+        <div className="bg-[#EDEBFF] rounded-xl p-6 flex items-center justify-center mb-2 h-24 md:h-40">
+          {/* Reduced height */}
           <Image
-            src="/arrow.svg"
-            width={24}
-            height={24}
-            alt="arrow"
-            className="md:w-8 md:h-22"
+            src={imageSrc}
+            width={imageSize}
+            height={imageSize}
+            alt={title}
+            className="object-contain"
           />
-        </span>
+        </div>
+        <div className="flex items-center justify-between pt-1">
+          <h3 className="text-sm p-1 md:text-lg font-bold text-gray-700">
+            {title}
+          </h3>
+          <span>
+            <Image
+              src="/arrow.svg"
+              width={24}
+              height={24}
+              alt="arrow"
+              className="md:w-8 md:h-22"
+            />
+          </span>
+        </div>
       </div>
-    </div>
-  </Link>
-));
+    </Link>
+  )
+);
 
 // 2. Optimize StatsCard with useMemo for expensive calculations
 const StatsCard = React.memo(() => {
@@ -175,17 +211,7 @@ const StatsCard = React.memo(() => {
         </ul>
       </div>
       <div className="w-full mt-4 bg-transparent text-black font-medium py-2 px-3 rounded-lg transition-color">
-        <div className="flex justify-center">
-          <ConnectButton
-            client={client}
-            theme={darkTheme({
-              colors: {
-                connectedButtonBg: "hsl(0, 0%, 100%)",
-                connectedButtonBgHover: "hsl(231, 32%, 86%)",
-              },
-            })}
-          />
-        </div>
+        <div className="flex justify-center"></div>
       </div>
     </div>
   );

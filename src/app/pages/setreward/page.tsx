@@ -1,10 +1,7 @@
 "use client";
 import Image from "next/image";
-import { useActiveAccount } from "thirdweb/react";
-import { useEffect, useState } from "react";
-import {
-  MockUSDC,
-} from "@/sc/ca";
+import { useEffect, useState, useCallback } from "react";
+import { MockUSDC } from "@/sc/ca";
 import tokenabi from "@/sc/tokenabi.json";
 import TriviaABI from "@/sc/trivia.json";
 import Web3 from "web3";
@@ -18,29 +15,90 @@ import {
   update as firebaseUpdate,
   getDatabase,
 } from "@/config/FirebaseConfig";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 const WinningPage = () => {
   const router = useRouter();
-  const account = useActiveAccount();
   const [amount, setAmount] = useState(null);
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
 
   //const provider = "https://mainnet.base.org";
-  const provider = "https://sepolia.base.org";
+  const providers = "https://sepolia.base.org";
 
-  const web3 = new Web3(provider);
+  const web3 = new Web3(providers);
   const dec = 10 ** 6;
   const [isChecking, setIsChecking] = useState(false);
   const [pendingButtonTrnx, setPendingButtonTrnx] = useState(false);
   const [rewardStatus, setRewardStatus] = useState("initial");
   let newContractTriviaBase = null;
-  let successTrnx,balNum = null;
+  let successTrnx,
+    balNum = null;
   const [quizCode, setQuizCode] = useState(null);
   const [privateKey, setPrivateKey] = useState(null);
 
+  // Initialize provider only on client side
+  useEffect(() => {
+    setProvider(createClientUPProvider());
+  }, []);
+
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
+
   useEffect(() => {
     const fetchQuizCode = async () => {
-      if (!account?.address) return;
-      const storedWalletAddress = account.address;
+      if (!accounts[0]) return;
+      const storedWalletAddress = accounts[0];
       console.log(storedWalletAddress);
       const db = getDatabase();
       const quizcodeRef = ref(db, `paid_quizcode/${storedWalletAddress}`);
@@ -59,29 +117,29 @@ const WinningPage = () => {
     };
 
     fetchQuizCode();
-  }, [account?.address]);
+  }, [accounts[0]]);
 
   const onApproveClick = async (_amount) => {
-  const createTrivia = async () => {
-    setPendingButtonTrnx(true);
+    const createTrivia = async () => {
+      setPendingButtonTrnx(true);
       try {
-       const response = await fetch(process.env.NEXT_PUBLIC_CREATE_TRIVIA_CONTRACT, {
-       method: 'POST',
-          headers: {
-            'Content-Type': 'application/json', 
+        const response = await fetch(
+          process.env.NEXT_PUBLIC_CREATE_TRIVIA_CONTRACT,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
           }
-        });
+        );
         const data = await response.json();
         return data.newContractTriviaBase;
+      } catch (err) {
+        return err;
       }
-      catch (err) {
-        return  err;
-      }
-};
-  let NEW_CONTRACT_TRIVIA = await createTrivia()
-  console.log(`adminn confirm transcation created ${NEW_CONTRACT_TRIVIA}`);
- 
-
+    };
+    let NEW_CONTRACT_TRIVIA = await createTrivia();
+    console.log(`adminn confirm transcation created ${NEW_CONTRACT_TRIVIA}`);
 
     const transferConfirm = async (contractAddress) => {
       const provider = window.ethereum;
@@ -155,7 +213,7 @@ const WinningPage = () => {
           quizCode,
           timestamp: new Date().toISOString(),
           transactionDetails: {
-            from: account.address,
+            from: accounts[0],
             to: NEW_CONTRACT_TRIVIA,
             amount: _amount,
             token: "USDC",
@@ -202,7 +260,7 @@ const WinningPage = () => {
   };
   return (
     <>
-      {account && (
+      {accounts[0] && (
         <div className="bg-gray-100 min-h-screen flex flex-col">
           <button className="bg-white text-gray-600 h-[72px] flex items-center justify-start mb-1 w-full md:hidden">
             <svg

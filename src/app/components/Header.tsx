@@ -1,73 +1,71 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import React, {useState, useCallback, useEffect, } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { db, doc, getDoc, setDoc } from "@/config/FirebaseConfig";
-import { createClientUPProvider } from '@lukso/up-provider';
-
-
-
+import { createClientUPProvider } from "@lukso/up-provider";
 
 export default function Header() {
-    const [provider, setProvider] = useState<any>(null);
-    const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
-    const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>([]);
-    const [profileConnected, setProfileConnected] = useState(false);
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
 
-    // Initialize provider only on client side
-    useEffect(() => {
-        setProvider(createClientUPProvider());
-    }, []);
+  // Initialize provider only on client side
+  useEffect(() => {
+    setProvider(createClientUPProvider());
+  }, []);
 
-    const updateConnected = useCallback(
-        (_accounts: Array<`0x${string}`>, _contextAccounts: Array<`0x${string}`>) => {
-            setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
-        },
-        [],
-    );
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
 
-    useEffect(() => {
-        if (!provider) return; // Only proceed if provider is initialized
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
 
-        async function init() {
-            try {
-                const _accounts = provider.accounts as Array<`0x${string}`>;
-                setAccounts(_accounts);
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
 
-                const _contextAccounts = provider.contextAccounts;
-                updateConnected(_accounts, _contextAccounts);
-            } catch (error) {
-                console.error('Failed to initialize provider:', error);
-            }
-        }
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
 
-        // Handle account changes
-        const accountsChanged = (_accounts: Array<`0x${string}`>) => {
-            setAccounts(_accounts);
-            updateConnected(_accounts, contextAccounts);
-        };
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
 
-        const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
-            setContextAccounts(_accounts);
-            updateConnected(accounts, _accounts);
-        };
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
 
-        init();
+    init();
 
-        // Set up event listeners
-        provider.on('accountsChanged', accountsChanged);
-        provider.on('contextAccountsChanged', contextAccountsChanged);
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
 
-        // Cleanup listeners
-        return () => {
-            provider.removeListener('accountsChanged', accountsChanged);
-            provider.removeListener('contextAccountsChanged', contextAccountsChanged);
-        };
-    }, [provider, accounts[0], contextAccounts[0], updateConnected]);
-
-
-
-
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
 
   React.useEffect(() => {
     const createUserProfile = async () => {
@@ -128,9 +126,9 @@ export default function Header() {
                 console.log("Connect Profile clicked");
               }}
             >
-              {profileConnected && accounts[0] ? 
-                `${accounts[0].slice(0, 4)}...${accounts[0].slice(-4)}` : 
-                'Connect Profile'}
+              {profileConnected && accounts[0]
+                ? `${accounts[0].slice(0, 4)}...${accounts[0].slice(-4)}`
+                : "Connect Profile"}
             </button>
           </div>
         </header>

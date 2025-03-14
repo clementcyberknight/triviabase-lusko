@@ -1,16 +1,15 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Plus, Trash2, X } from "lucide-react";
 import styles from "./quizcreationpage.module.css";
 import PreviewQuizPage from "./previewquestion";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
 import { getDatabase, database, ref, set, push } from "@/config/FirebaseConfig";
-import { useActiveAccount } from "thirdweb/react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 //every line matter be carefull
 
@@ -30,7 +29,12 @@ const LAST_GENERATION_KEY = "last_ai_generation";
 const COOLDOWN_PERIOD = 60000;
 
 const QuizCreationPage = () => {
-  const account = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState([
@@ -106,6 +110,65 @@ const QuizCreationPage = () => {
         setValidationError("");
       }
     }, [isOpen]);
+
+    // Initialize provider only on client side
+    useEffect(() => {
+      setProvider(createClientUPProvider());
+    }, []);
+
+    const updateConnected = useCallback(
+      (
+        _accounts: Array<`0x${string}`>,
+        _contextAccounts: Array<`0x${string}`>
+      ) => {
+        setProfileConnected(
+          _accounts.length > 0 && _contextAccounts.length > 0
+        );
+      },
+      []
+    );
+
+    useEffect(() => {
+      if (!provider) return; // Only proceed if provider is initialized
+
+      async function init() {
+        try {
+          const _accounts = provider.accounts as Array<`0x${string}`>;
+          setAccounts(_accounts);
+
+          const _contextAccounts = provider.contextAccounts;
+          updateConnected(_accounts, _contextAccounts);
+        } catch (error) {
+          console.error("Failed to initialize provider:", error);
+        }
+      }
+
+      // Handle account changes
+      const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+        setAccounts(_accounts);
+        updateConnected(_accounts, contextAccounts);
+      };
+
+      const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+        setContextAccounts(_accounts);
+        updateConnected(accounts, _accounts);
+      };
+
+      init();
+
+      // Set up event listeners
+      provider.on("accountsChanged", accountsChanged);
+      provider.on("contextAccountsChanged", contextAccountsChanged);
+
+      // Cleanup listeners
+      return () => {
+        provider.removeListener("accountsChanged", accountsChanged);
+        provider.removeListener(
+          "contextAccountsChanged",
+          contextAccountsChanged
+        );
+      };
+    }, [provider, accounts[0], contextAccounts[0], updateConnected]);
 
     const handleInputChange = (e) => {
       const { name, value } = e.target;
@@ -471,7 +534,7 @@ const QuizCreationPage = () => {
 
     let storedWalletAddress;
     try {
-      storedWalletAddress = account.address;
+      storedWalletAddress = accounts[0];
       if (!storedWalletAddress) {
         toast.error("Please connect your wallet before saving the quiz", {
           autoClose: 3000,

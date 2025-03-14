@@ -37,7 +37,6 @@
     "react-dom": "^18",
     "react-hot-toast": "^2.4.1",
     "react-toastify": "^11.0.2",
-    "thirdweb": "^5.61.6",
     "web3": "^4.15.0"
   },
   "devDependencies": {

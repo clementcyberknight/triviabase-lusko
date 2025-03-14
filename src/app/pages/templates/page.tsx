@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import styles from "./quizcreationpage.module.css";
 import PreviewQuizPage from "./previewquestion";
@@ -11,9 +11,9 @@ import {
   set,
   onValue,
 } from "@/config/FirebaseConfig";
-import { useActiveAccount } from "thirdweb/react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 //every line matter be carefull
 
@@ -32,7 +32,12 @@ const generateQuizCode = () => {
 const STORAGE_KEY = "quiz_draft";
 
 const QuizCreationPage = () => {
-  const account = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState([
@@ -50,6 +55,59 @@ const QuizCreationPage = () => {
   const [isMounted, setIsMounted] = useState(false); // New state to track if component is mounted
 
   const [templateCode, setTemplateCode] = useState("");
+
+  useEffect(() => {
+    setProvider(createClientUPProvider());
+  }, []);
+
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
 
   // Fetch template data from Firebase
   useEffect(() => {
@@ -205,7 +263,7 @@ const QuizCreationPage = () => {
     setLoading(true);
 
     // Retrieve the wallet address from session storage
-    let storedWalletAddress = account?.address;
+    let storedWalletAddress = accounts[0];
 
     // If no wallet is connected, generate a random serial number
     if (!storedWalletAddress) {
@@ -214,6 +272,7 @@ const QuizCreationPage = () => {
         .substr(2, 9)
         .toUpperCase()}`;
       localStorage.setItem("randomSerial", randomSerial);
+      //@ts-ignore
       storedWalletAddress = randomSerial;
     }
 

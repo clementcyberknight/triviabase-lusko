@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
-import { useEffect } from "react"
-import { ThirdwebProvider } from "thirdweb/react";
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createConfig, WagmiProvider } from "wagmi";
 import { mainnet } from "wagmi/chains";
@@ -20,9 +19,9 @@ const config = createConfig({
 function FarcasterFrameProvider({ children }) {
   useEffect(() => {
     const load = async () => {
-      FrameSDK.actions.ready()
-    }
-    load()
+      FrameSDK.actions.ready();
+    };
+    load();
   }, []);
 
   return <>{children}</>;
@@ -33,11 +32,9 @@ export default function ClientLayout({ children }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <FarcasterFrameProvider>
-          <ThirdwebProvider>
-            <Header />
-            <Analytics />
-            {children}
-          </ThirdwebProvider>
+          <Header />
+          <Analytics />
+          {children}
         </FarcasterFrameProvider>
       </QueryClientProvider>
     </WagmiProvider>

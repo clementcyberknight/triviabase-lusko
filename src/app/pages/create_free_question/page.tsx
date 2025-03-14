@@ -1,13 +1,12 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 import styles from "./quizcreationpage.module.css";
 import PreviewQuizPage from "./previewquestion";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
 import { getDatabase, database, ref, set, push } from "@/config/FirebaseConfig";
-import { useActiveAccount } from "thirdweb/react";
+import { createClientUPProvider } from "@lukso/up-provider";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -31,7 +30,22 @@ const LAST_GENERATION_KEY = "last_ai_generation";
 const COOLDOWN_PERIOD = 60000;
 
 const QuizCreationPage = () => {
-  const account = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [questions, setQuestions] = useState([
@@ -94,6 +108,52 @@ const QuizCreationPage = () => {
       numQuestions: "5",
     });
     const [validationError, setValidationError] = useState("");
+
+    useEffect(() => {
+      setProvider(createClientUPProvider());
+    }, []);
+
+    useEffect(() => {
+      if (!provider) return; // Only proceed if provider is initialized
+
+      async function init() {
+        try {
+          const _accounts = provider.accounts as Array<`0x${string}`>;
+          setAccounts(_accounts);
+
+          const _contextAccounts = provider.contextAccounts;
+          updateConnected(_accounts, _contextAccounts);
+        } catch (error) {
+          console.error("Failed to initialize provider:", error);
+        }
+      }
+
+      // Handle account changes
+      const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+        setAccounts(_accounts);
+        updateConnected(_accounts, contextAccounts);
+      };
+
+      const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+        setContextAccounts(_accounts);
+        updateConnected(accounts, _accounts);
+      };
+
+      init();
+
+      // Set up event listeners
+      provider.on("accountsChanged", accountsChanged);
+      provider.on("contextAccountsChanged", contextAccountsChanged);
+
+      // Cleanup listeners
+      return () => {
+        provider.removeListener("accountsChanged", accountsChanged);
+        provider.removeListener(
+          "contextAccountsChanged",
+          contextAccountsChanged
+        );
+      };
+    }, [provider, accounts[0], contextAccounts[0], updateConnected]);
 
     // Reset form and errors when modal closes
     useEffect(() => {
@@ -473,15 +533,17 @@ const QuizCreationPage = () => {
     setLoading(true);
 
     // Retrieve the wallet address from session storage
-    let storedWalletAddress = account?.address;
+    let storedWalletAddress = accounts[0];
 
     // If no wallet is connected, prompt user to connect wallet
+    // If no wallet is connected, generate a random serial number
     if (!storedWalletAddress) {
       const randomSerial = `NW-${Math.random()
         .toString(36)
         .substr(2, 9)
         .toUpperCase()}`;
       localStorage.setItem("randomSerial", randomSerial);
+      //@ts-ignore
       storedWalletAddress = randomSerial;
     }
 

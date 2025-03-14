@@ -1,17 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { database, ref, set, get } from "@/config/FirebaseConfig";
-import { useActiveAccount } from "thirdweb/react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 // Constants
 const USERNAME_CONSTRAINTS = {
   MIN_LENGTH: 3,
-  MAX_LENGTH: 25, // Increased max length to accommodate names with dots
+  MAX_LENGTH: 18, // Moved max length to the constant definition
 };
 
 const THEME = {
@@ -35,161 +35,156 @@ const THEME = {
 };
 
 const SetUsernamePage = () => {
-  const [selectedName, setSelectedName] = useState("");
+  const router = useRouter();
+  const [selectedName, setSelectedName] = useState(""); // Define selectedName
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const [quizCode, setQuizCode] = useState(null);
-  const activeAccount = useActiveAccount();
-
-  // Add new state for wallet prompt
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
 
+  // Initialize provider only on client side
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const code = sessionStorage.getItem("inviteCode");
-      setQuizCode(code);
-    }
+    setProvider(createClientUPProvider());
   }, []);
 
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
   useEffect(() => {
-    if (!activeAccount?.address) {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
+
+  useEffect(() => {
+    if (!profileConnected || contextAccounts.length === 0) {
       setShowWalletPrompt(true);
     } else {
       setShowWalletPrompt(false);
     }
-  }, [activeAccount]);
+  }, [profileConnected, contextAccounts[0]]);
 
   const handleInputChange = (e) => {
-    setSelectedName(e.target.value);
+    const name = e.target.value;
+    setSelectedName(name);
+    setError(""); // Clear error on input change
   };
 
   const handleBack = () => {
     router.back();
   };
 
-  const saveParticipant = async (username) => {
-    if (!activeAccount?.address) {
-      throw new Error("Wallet not connected");
-    }
-
-    // Check if game has already started
-    const gameRef = ref(database, `paid_quizzes/${quizCode}`);
-    const gameSnapshot = await get(gameRef);
-    if (gameSnapshot.exists() && gameSnapshot.val().game_start) {
-      throw new Error("Game has already started. You can no longer join.");
-    }
-
-    // Check for existing wallet in game participants
-    const gameParticipantsRef = ref(database, `game_participant/${quizCode}`);
-    const participantsSnapshot = await get(gameParticipantsRef);
-    let existingParticipantKey = null;
-
-    if (participantsSnapshot.exists()) {
-      const participants = participantsSnapshot.val();
-      for (const key in participants) {
-        if (participants[key].walletAddress === activeAccount.address) {
-          throw new Error("This wallet has already joined the game.");
-        }
-      }
-    }
-
-    // Check if username is taken in this game
-    // Using a sanitized version of the username for the key
-    const sanitizedUsername = username.replace(/\./g, "_");
-    const usernameRef = ref(
-      database,
-      `game_participant/${quizCode}/${sanitizedUsername}`
-    );
-    const usernameSnapshot = await get(usernameRef);
-    if (usernameSnapshot.exists()) {
-      throw new Error("This username is already taken in this game");
-    }
-
-    const paths = {
-      gameParticipant: `game_participant/${quizCode}/${sanitizedUsername}`,
-      leaderboard: `leaderboard/${sanitizedUsername}`,
-      quizParticipant: `paid_quizzes/${quizCode}/participants/${sanitizedUsername}`,
-      userWallet: `users/${sanitizedUsername}`,
-    };
-
-    try {
-      await Promise.all([
-        set(ref(database, paths.gameParticipant), {
-          score: 0,
-          walletAddress: activeAccount.address,
-          username: username, // Store the original username
-        }),
-        set(ref(database, paths.leaderboard), {
-          quizplayed: 0,
-          score: 0,
-          walletAddress: activeAccount.address,
-          username: username, // Store the original username
-        }),
-        set(ref(database, paths.quizParticipant), {
-          score: 0,
-          walletAddress: activeAccount.address,
-          username: username, // Store the original username
-        }),
-        set(ref(database, paths.userWallet), {
-          walletAddress: activeAccount.address,
-          createdAt: new Date().toISOString(),
-          username: username, // Store the original username
-        }),
-      ]);
-    } catch (error) {
-      console.error("Error saving to Firebase:", error);
-      throw error;
-    }
-  };
-
   const handleConfirm = async () => {
-    setError("");
+    if (!profileConnected || contextAccounts.length === 0) {
+      toast.error("Connect your wallet before joining!", {
+        position: "top-center",
+      });
+      return;
+    }
+    if (selectedName.length < USERNAME_CONSTRAINTS.MIN_LENGTH) {
+      setError(
+        `Username must be at least ${USERNAME_CONSTRAINTS.MIN_LENGTH} characters long.`
+      );
+      return;
+    }
+    if (selectedName.length > USERNAME_CONSTRAINTS.MAX_LENGTH) {
+      setError(
+        `Username cannot be more than ${USERNAME_CONSTRAINTS.MAX_LENGTH} characters long.`
+      );
+      return;
+    }
+
     setIsLoading(true);
+    setError("");
 
     try {
-      if (!activeAccount?.address) {
-        toast.error(
-          "Please connect your wallet first. Click the 'Connect Wallet' button in the header to proceed."
-        );
-        setShowWalletPrompt(true);
-        return;
-      }
+      const freeGameCode = sessionStorage.getItem("gameCode");
+      // Sanitize the username to remove spaces, convert to lowercase, and replace dots with underscores
+      const sanitizedUsername = selectedName
+        .trim()
+        .toLowerCase()
+        .replace(/\./g, "_");
+      // Check if user has participated before
+      const participationRef = ref(
+        database,
+        `free_game/participation/${freeGameCode}/${accounts[0]}`
+      );
+
+      const participationSnapshot = await get(participationRef);
 
       if (
-        selectedName.length < USERNAME_CONSTRAINTS.MIN_LENGTH ||
-        selectedName.length > USERNAME_CONSTRAINTS.MAX_LENGTH
+        participationSnapshot.exists() &&
+        participationSnapshot.val().hasParticipated === true
       ) {
-        toast.error(
-          `Username must be between ${USERNAME_CONSTRAINTS.MIN_LENGTH} and ${USERNAME_CONSTRAINTS.MAX_LENGTH} characters.`
-        );
+        setError("You have already taken this quiz.");
+        setIsLoading(false);
         return;
       }
 
-      await saveParticipant(selectedName);
-      sessionStorage.setItem("username", selectedName);
-      localStorage.setItem("username", selectedName);
-      router.push(`./paid_user_waiting_room`);
+      // set username in local storage
+      localStorage.setItem("freegameusername", sanitizedUsername);
+      sessionStorage.setItem("freegameusername", sanitizedUsername);
+
+      // If username is available, proceed to set participation status
+      const userParticipationRef = ref(
+        database,
+        `free_game/participation/${freeGameCode}/${accounts[0]}`
+      );
+      await set(userParticipationRef, {
+        walletAddress: accounts[0],
+        username: sanitizedUsername,
+      });
+
+      // Redirect to the quiz page
+      router.push("/pages/free_games");
     } catch (error) {
-      // More specific error handling based on error message
-      if (error.message.includes("already has a username")) {
-        toast.error(
-          "This wallet is already registered with a username. Please use a different wallet or contact support."
-        );
-      } else if (error.message.includes("already started")) {
-        toast.error(
-          "This game session has already begun. Please wait for the next game or contact the host."
-        );
-      } else if (error.message.includes("already joined the game")) {
-        toast.error(
-          "This wallet has already joined the game. Please use a different wallet or contact support."
-        );
-      } else {
-        toast.error(
-          `Failed to join the game: ${error.message}. Please try again or contact support.`
-        );
-      }
-    } finally {
+      console.error("Error setting username:", error);
+      setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -283,7 +278,7 @@ const SetUsernamePage = () => {
                     disabled={isLoading || !selectedName}
                     aria-busy={isLoading}
                   >
-                    {isLoading ? "Joining..." : "Join Game"}
+                    {isLoading ? "Starting..." : "Start Game"}
                   </button>
                 </div>
               </>

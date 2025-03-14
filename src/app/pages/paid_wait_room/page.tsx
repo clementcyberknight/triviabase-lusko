@@ -1,16 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { database, ref, onValue, update, set } from "@/config/FirebaseConfig";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Copy } from "lucide-react";
-import { useActiveAccount } from "thirdweb/react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 export default function Home() {
-  const account = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
   const router = useRouter();
   const [players, setPlayers] = useState([]);
   const [questions, setQuestions] = useState([]);
@@ -23,10 +28,64 @@ export default function Home() {
   const [shareUrl, setShareUrl] = useState("");
   const shareMessage = `Join my quiz game! Use code: ${quizCode}\n`;
 
+  // Initialize provider only on client side
   useEffect(() => {
-    if (!account?.address) return;
+    setProvider(createClientUPProvider());
+  }, []);
 
-    const quizcodeRef = ref(database, `paid_quizcode/${account.address}`);
+  const updateConnected = useCallback(
+    (
+      _accounts: Array<`0x${string}`>,
+      _contextAccounts: Array<`0x${string}`>
+    ) => {
+      setProfileConnected(_accounts.length > 0 && _contextAccounts.length > 0);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!provider) return; // Only proceed if provider is initialized
+
+    async function init() {
+      try {
+        const _accounts = provider.accounts as Array<`0x${string}`>;
+        setAccounts(_accounts);
+
+        const _contextAccounts = provider.contextAccounts;
+        updateConnected(_accounts, _contextAccounts);
+      } catch (error) {
+        console.error("Failed to initialize provider:", error);
+      }
+    }
+
+    // Handle account changes
+    const accountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setAccounts(_accounts);
+      updateConnected(_accounts, contextAccounts);
+    };
+
+    const contextAccountsChanged = (_accounts: Array<`0x${string}`>) => {
+      setContextAccounts(_accounts);
+      updateConnected(accounts, _accounts);
+    };
+
+    init();
+
+    // Set up event listeners
+    provider.on("accountsChanged", accountsChanged);
+    provider.on("contextAccountsChanged", contextAccountsChanged);
+
+    // Cleanup listeners
+    return () => {
+      provider.removeListener("accountsChanged", accountsChanged);
+      provider.removeListener("contextAccountsChanged", contextAccountsChanged);
+    };
+  }, [provider, accounts[0], contextAccounts[0], updateConnected]);
+
+  useEffect(() => {
+    if (!accounts[0]) return;
+
+    const quizcodeRef = ref(database, `paid_quizcode/${accounts[0]}`);
 
     const unsubscribeQuizCode = onValue(
       quizcodeRef,
@@ -58,7 +117,7 @@ export default function Home() {
     return () => {
       unsubscribeQuizCode();
     };
-  }, [account?.address]);
+  }, [accounts[0]]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -107,6 +166,7 @@ export default function Home() {
           const playersArray = Object.entries(playersData).map(
             ([username, data]) => ({
               username,
+              // @ts-ignore
               score: data.score,
             })
           );

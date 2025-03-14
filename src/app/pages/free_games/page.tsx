@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { throttle, debounce } from "lodash";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useActiveAccount } from "thirdweb/react";
+import { createClientUPProvider } from "@lukso/up-provider";
 
 const QuizPage = React.memo(() => {
   const router = useRouter();
@@ -27,7 +27,12 @@ const QuizPage = React.memo(() => {
     isLoading: true,
     leaderboard: [],
   });
-  const activeAccount = useActiveAccount();
+  const [provider, setProvider] = useState<any>(null);
+  const [accounts, setAccounts] = useState<Array<`0x${string}`>>([]);
+  const [contextAccounts, setContextAccounts] = useState<Array<`0x${string}`>>(
+    []
+  );
+  const [profileConnected, setProfileConnected] = useState(false);
 
   const [sessionState, setSessionState] = useState({
     freeGameCode: null,
@@ -52,6 +57,7 @@ const QuizPage = React.memo(() => {
         const leaderboardArray = Object.entries(data)
           .map(([username, userData]) => ({
             username,
+            // @ts-ignore
             score: userData.score || 0,
           }))
           .sort((a, b) => b.score - a.score);
@@ -63,6 +69,7 @@ const QuizPage = React.memo(() => {
       } catch (error) {
         console.error("Error fetching leaderboard:", error);
         toast.error("Error fetching leaderboard. Please try again.", {
+          // @ts-ignore
           position: toast.POSITION.TOP_CENTER,
         });
       }
@@ -131,6 +138,7 @@ const QuizPage = React.memo(() => {
               isLoading: false,
             }));
             toast.error("No questions found for this game code.", {
+              // @ts-ignore
               position: toast.POSITION.TOP_CENTER,
             });
           }
@@ -141,6 +149,7 @@ const QuizPage = React.memo(() => {
             isLoading: false,
           }));
           toast.error("Error fetching questions. Please try again.", {
+            // @ts-ignore
             position: toast.POSITION.TOP_CENTER,
           });
         }
@@ -152,6 +161,7 @@ const QuizPage = React.memo(() => {
           isLoading: false,
         }));
         toast.error("Error fetching questions. Please try again.", {
+          // @ts-ignore
           position: toast.POSITION.TOP_CENTER,
         });
       }
@@ -296,6 +306,7 @@ const QuizPage = React.memo(() => {
     } catch (error) {
       console.error("Error updating game state:", error);
       toast.error("Error updating game state. Please try again.", {
+        // @ts-ignore
         position: toast.POSITION.TOP_CENTER,
       });
     }
@@ -314,17 +325,18 @@ const QuizPage = React.memo(() => {
     try {
       const participationRef = ref(
         database,
-        `free_game/participation/${freeGameCode}/${activeAccount?.address}`
+        `free_game/participation/${freeGameCode}/${accounts[0]}`
       );
       await set(participationRef, {
         hasParticipated: true,
         score: gameState.score,
-        walletAddress: activeAccount?.address,
+        walletAddress: accounts[0],
         username: username,
       });
     } catch (error) {
       console.error("Error marking participation:", error);
       toast.error("Error marking participation. Please try again.", {
+        // @ts-ignore
         position: toast.POSITION.TOP_CENTER,
       });
     }
@@ -344,6 +356,7 @@ const QuizPage = React.memo(() => {
     } catch (error) {
       console.error("Error checking participation:", error);
       toast.error("Error checking participation. Please try again.", {
+        // @ts-ignore
         position: toast.POSITION.TOP_CENTER,
       });
       return false;
@@ -365,6 +378,7 @@ const QuizPage = React.memo(() => {
       } catch (error) {
         console.error("Error verifying participation:", error);
         toast.error("Error verifying participation. Please try again.", {
+          // @ts-ignore
           position: toast.POSITION.TOP_CENTER,
         });
       }
