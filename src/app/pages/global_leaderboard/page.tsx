@@ -157,27 +157,26 @@ export default function Leaderboard() {
       <ToastContainer />
       {/* Fixed Header */}
       <div className="fixed top-20 left-0 right-0 bg-white z-50">
-        {/* Subheader */}
         <div className="border-b border-gray-200 bg-white py-4 px-4 sm:px-6 lg:px-8 shadow-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center">
               <Link href="/pages/dashboard" className="mr-4">
                 <ArrowLeft className="h-5 w-5 text-gray-500" />
               </Link>
-              <h1 className="text-2xl font-semibold text-gray-800">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
                 Global Leaderboard
               </h1>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-2 sm:space-x-4">
               <Link
                 href="/pages/dashboard"
-                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex-1 sm:flex-none text-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Go to Dashboard
               </Link>
               <button
                 onClick={handleClaimNFTs}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="flex-1 sm:flex-none text-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
                 Claim NFTs
               </button>
@@ -186,10 +185,9 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {/* Main Content - Adjusted padding and added margin */}
-      <div className="pt-48">
-        {/* Leaderboard Content */}
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      {/* Main Content - Adjust padding for mobile */}
+      <div className="pt-64 sm:pt-48">
+        <div className="mx-auto max-w-4xl px-2 sm:px-6 lg:px-8">
           <div className="overflow-hidden shadow border border-blue-500 rounded-xl">
             {/* Leaderboard Header */}
             <div className="flex items-center justify-center border-b border-gray-200 bg-white py-4 rounded-t-xl">
@@ -203,14 +201,14 @@ export default function Leaderboard() {
               <>
                 {/* Winner Section */}
                 {participants.length > 0 && (
-                  <div className="bg-blue-50 p-12 rounded-xl max-w-3xl mx-auto">
-                    <div className="flex items-center justify-center space-x-4">
-                      <span className="text-xl font-medium text-gray-600">
+                  <div className="bg-blue-50 p-4 sm:p-12 rounded-xl max-w-3xl mx-auto">
+                    <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
+                      <span className="text-lg sm:text-xl font-medium text-gray-600">
                         Trib Chief
                       </span>
-                      <div className="h-px w-12 bg-gray-400"></div>
+                      <div className="hidden sm:block h-px w-12 bg-gray-400"></div>
                       <div className="flex items-center">
-                        <span className="text-xl font-semibold text-gray-800">
+                        <span className="text-lg sm:text-xl font-semibold text-gray-800">
                           {participants[0].walletAddress.slice(0, 6)}...
                           {participants[0].walletAddress.slice(-4)}
                         </span>
@@ -224,11 +222,11 @@ export default function Leaderboard() {
                   {participants.map((participant, index) => (
                     <div
                       key={index}
-                      className={`flex items-center justify-between px-6 py-4 ${
+                      className={`flex items-center justify-between px-3 sm:px-6 py-4 ${
                         participant.isCurrentUser ? "bg-blue-50" : ""
                       }`}
                     >
-                      <span className="font-medium text-gray-800">
+                      <span className="font-medium text-gray-800 text-sm sm:text-base">
                         {participant.walletAddress.slice(0, 6)}...
                         {participant.walletAddress.slice(-4)}
                         {participant.isCurrentUser && " (you)"}
@@ -236,7 +234,7 @@ export default function Leaderboard() {
                       <div className="flex items-center">
                         {participant.isWinner && (
                           <div className="mr-2 text-yellow-500">
-                            <Trophy className="h-6 w-6" />
+                            <Trophy className="h-5 w-5 sm:h-6 sm:w-6" />
                           </div>
                         )}
                         <span className="font-medium text-blue-500">

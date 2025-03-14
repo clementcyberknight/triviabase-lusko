@@ -230,6 +230,13 @@ const menuItems = [
     code: "MENU_001",
     href: "/pages/global_leaderboard",
   },
+  {
+    title: "My Profile",
+    reward: "0",
+    isPaid: true,
+    code: "MENU_002",
+    href: "/pages/user_profile",
+  },
 ];
 
 const HomePage = () => {
